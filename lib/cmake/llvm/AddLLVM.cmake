@@ -236,13 +236,13 @@ function(add_link_opts target_name)
       elseif(${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
         # Support for ld -z discard-unused=sections was only added in
         # Solaris 11.4.
-        include(CheckLinkerFlag)
-        check_linker_flag("-Wl,-z,discard-unused=sections" LINKER_SUPPORTS_Z_DISCARD_UNUSED)
+        include(LLVMCheckLinkerFlag)
+        llvm_check_linker_flag(CXX "-Wl,-z,discard-unused=sections" LINKER_SUPPORTS_Z_DISCARD_UNUSED)
         if (LINKER_SUPPORTS_Z_DISCARD_UNUSED)
           set_property(TARGET ${target_name} APPEND_STRING PROPERTY
                        LINK_FLAGS " -Wl,-z,discard-unused=sections")
         endif()
-      elseif(NOT WIN32 AND NOT CMAKE_SYSTEM_NAME MATCHES "OpenBSD|AIX|OS390")
+      elseif(NOT MSVC AND NOT CMAKE_SYSTEM_NAME MATCHES "OpenBSD|AIX|OS390")
         # TODO Revisit this later on z/OS.
         set_property(TARGET ${target_name} APPEND_STRING PROPERTY
                      LINK_FLAGS " -Wl,--gc-sections")
@@ -2105,6 +2105,12 @@ function(llvm_setup_rpath name)
   if (APPLE)
     set(_install_name_dir INSTALL_NAME_DIR "@rpath")
     set(_install_rpath "@loader_path/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES "AIX" AND BUILD_SHARED_LIBS)
+    # $ORIGIN is not interpreted at link time by aix ld.
+    # Since BUILD_SHARED_LIBS is only recommended for use by developers,
+    # hardcode the rpath to build/install lib dir first in this mode.
+    # FIXME: update this when there is better solution.
+    set(_install_rpath "${LLVM_LIBRARY_OUTPUT_INTDIR}" "${CMAKE_INSTALL_PREFIX}/lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
   elseif(UNIX)
     set(_install_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
     if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
